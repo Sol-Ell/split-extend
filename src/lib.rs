@@ -29,8 +29,9 @@ mod test {
     fn basic() {
         let mut list = vec![-159, 1, 2, 3];
 
+        println!("List: {:?}", list);
+
         let (mut head, mut tail) = <_ as SplitExtend<LocalProvider<_>>>::split_extend(&mut list, 1);
-        tail.push(4);
 
         println!("First head: {:?}", head);
         println!("First tail: {:?}", tail);
@@ -39,7 +40,7 @@ mod test {
             tail.split_extend(3);
 
         println!("Extending list..");
-        tail_2.extend(5..32);
+        tail_2.extend(4..32);
 
         println!("Second head: {:?}", head_2);
         println!("Second tail: {:?}", tail_2);
