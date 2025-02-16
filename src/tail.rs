@@ -9,31 +9,28 @@ use alloc::{
     vec::Vec,
 };
 
-use crate::{index_out_of_range, Head, NoProvider, Provider};
-
-/// Extension trait to create new [`Tail`] from mutable reference to [`Vec`].
-pub trait SplitExtend<'a, A: Allocator> {
-    type Item;
-
-    fn split_extend<P: Provider>(
-        &'a mut self,
-        offset: usize,
-    ) -> (Head<'a, Self::Item, P>, Tail<'a, Self::Item, P, A>);
-
-    fn tail(&'a mut self, offset: usize) -> Tail<'a, Self::Item, A, NoProvider<Self::Item>>;
-}
+use crate::{index_out_of_range, Head, Provider, SplitExtend};
 
 /// Allows to extend [`Vec`] while hiding values before some index.
-pub struct Tail<'a, T, P: Provider, A: Allocator = Global> {
-    offset: usize,
+pub struct Tail<'a, T, P, A: Allocator = Global> {
+    from: usize,
     list: &'a mut Vec<T, A>,
+    provider: P,
     // Captures lifetime of the parent `Tail`.
     phantom: PhantomData<&'a mut Tail<'a, T, P, A>>,
 }
 
-impl<T, P: Provider, A: Allocator> Tail<'_, T, P, A> {
+impl<'a, T, P, A: Allocator> Tail<'a, T, P, A> {
+    pub(crate) fn new_unchecked(from: usize, list: &'a mut Vec<T, A>, provider: P) -> Self {
+        Self {
+            from,
+            list,
+            provider,
+            phantom: PhantomData,
+        }
+    }
     pub fn len(&self) -> usize {
-        self.list.len() - self.offset
+        self.list.len() - self.from
     }
 
     pub fn is_empty(&self) -> bool {
@@ -41,81 +38,60 @@ impl<T, P: Provider, A: Allocator> Tail<'_, T, P, A> {
     }
 
     pub fn capacity(&self) -> usize {
-        self.list.capacity() - self.offset
+        self.list.capacity() - self.from
     }
 
     pub fn clear(&mut self) {
-        self.list.truncate(self.offset);
+        self.list.truncate(self.from);
     }
+}
 
+impl<T, P: Provider<Item = T>, A: Allocator> Tail<'_, T, P, A> {
     pub fn push(&mut self, element: T) {
         self.list.push(element);
+        self.provider.update(self.list.as_mut_ptr());
     }
 }
 
-impl<'a, T, A: Allocator> SplitExtend<'a, A> for Vec<T, A> {
+impl<T, P: Provider<Item = T>, A: Allocator> SplitExtend<P, A> for Tail<'_, T, P, A> {
     type Item = T;
 
-    fn split_extend<P: Provider>(
-        &'a mut self,
-        offset: usize,
-    ) -> (Head<'a, Self::Item, P>, Tail<'a, Self::Item, P, A>) {
-        if offset > self.len() {
+    fn split_extend(&mut self, at: usize) -> (Head<'_, Self::Item, P>, Tail<'_, Self::Item, P, A>) {
+        if at > self.len() {
             index_out_of_range();
         }
 
-        let head = Head::new_unchecked(provider, offset, len);
-    }
+        let head = Head::new_unchecked(self.provider.clone(), self.from, at);
 
-    fn tail(&'a mut self, offset: usize) -> Tail<'a, Self::Item, A> {
-        if offset > self.len() {
-            index_out_of_range();
-        }
+        // SAFETY: Guarded by mutable reference to self.
+        let tail = Tail::new_unchecked(
+            self.from + at,
+            unsafe { &mut *(self.list as *mut Vec<T, A>) },
+            self.provider.clone(),
+        );
 
-        Tail {
-            offset,
-            list: self,
-            phantom: PhantomData,
-        }
+        (head, tail)
     }
 }
-
-// impl<'a, T, A: Allocator> TailExt<'a, A> for Tail<'a, T, A> {
-//     type Item = T;
-
-//     fn tail(&'a mut self, mut offset: usize) -> Tail<'a, Self::Item, A> {
-//         if offset > self.len() {
-//             index_out_of_range();
-//         }
-
-//         offset += self.offset;
-
-//         Tail {
-//             offset,
-//             // SAFETY: Guarded by mutable reference to self.
-//             list: unsafe { &mut *(self.list as *mut Vec<T, A>) },
-//             phantom: PhantomData,
-//         }
-//     }
-// }
 
 impl<T, P: Provider, A: Allocator> Deref for Tail<'_, T, P, A> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
-        &self.list[self.offset..]
+        &self.list[self.from..]
     }
 }
 
 impl<T, P: Provider, A: Allocator> DerefMut for Tail<'_, T, P, A> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.list[self.offset..]
+        &mut self.list[self.from..]
     }
 }
 
-impl<T, P: Provider, A: Allocator> Extend<T> for Tail<'_, T, P, A> {
+impl<T, P: Provider<Item = T>, A: Allocator> Extend<T> for Tail<'_, T, P, A> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         Extend::extend(self.list, iter);
+        self.provider.update(self.list.as_mut_ptr());
     }
 }
 

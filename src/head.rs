@@ -1,6 +1,6 @@
 use core::{fmt::Debug, marker::PhantomData, slice};
 
-use crate::{DefaultProvider, Provider};
+use crate::Provider;
 
 pub struct Head<'a, T, P: Provider> {
     offset: usize,
@@ -10,9 +10,9 @@ pub struct Head<'a, T, P: Provider> {
 }
 
 impl<T, P: Provider> Head<'_, T, P> {
-    pub(crate) fn new_unchecked(provider: P, offset: usize, len: usize) -> Self {
+    pub(crate) fn new_unchecked(provider: P, from: usize, len: usize) -> Self {
         Self {
-            offset,
+            offset: from,
             len,
             provider,
             phantom: PhantomData,
