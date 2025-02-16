@@ -1,5 +1,5 @@
 [package]
-name = "vec-tail"
+name = "split-extend"
 version = "0.1.0"
 edition = "2021"
 
