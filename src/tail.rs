@@ -49,14 +49,17 @@ impl<'a, T, P, A: Allocator> Tail<'a, T, P, A> {
 impl<T, P: Provider<Item = T>, A: Allocator> Tail<'_, T, P, A> {
     pub fn push(&mut self, element: T) {
         self.list.push(element);
-        self.provider.update(self.list.as_mut_ptr());
+        self.provider.update_with(|| self.list.as_mut_ptr());
     }
 }
 
-impl<T, P: Provider<Item = T>, A: Allocator> SplitExtend<P, A> for Tail<'_, T, P, A> {
+impl<'a, T, P: Provider<Item = T>, A: Allocator> SplitExtend<'a, P, A> for Tail<'a, T, P, A> {
     type Item = T;
 
-    fn split_extend(&mut self, at: usize) -> (Head<'_, Self::Item, P>, Tail<'_, Self::Item, P, A>) {
+    fn split_extend(
+        &'a mut self,
+        at: usize,
+    ) -> (Head<'a, Self::Item, P>, Tail<'a, Self::Item, P, A>) {
         if at > self.len() {
             index_out_of_range();
         }
@@ -91,7 +94,7 @@ impl<T, P: Provider, A: Allocator> DerefMut for Tail<'_, T, P, A> {
 impl<T, P: Provider<Item = T>, A: Allocator> Extend<T> for Tail<'_, T, P, A> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         Extend::extend(self.list, iter);
-        self.provider.update(self.list.as_mut_ptr());
+        self.provider.update_with(|| self.list.as_mut_ptr());
     }
 }
 

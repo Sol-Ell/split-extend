@@ -1,30 +1,32 @@
-use core::{
-    cell::Cell,
-    marker::PhantomData,
-    sync::atomic::{AtomicPtr, Ordering},
-};
+use core::{cell::Cell, marker::PhantomData};
 
-use alloc::{rc::Rc, sync::Arc};
+use alloc::rc::Rc;
 
 pub struct NoProvider<T>(PhantomData<T>);
 
 pub struct LocalProvider<T>(Rc<Cell<*mut T>>);
 
-pub struct SendProvider<T>(Arc<AtomicPtr<T>>);
+// pub struct SendProvider<T>(Arc<AtomicPtr<T>>);
 
 /// Responsible for updating current address of the list and
 /// informing arbitrary number of [`Head`](super::Head).
-pub trait Provider: Clone + From<*mut Self::Item> {
+pub trait Provider: Sized + Clone + From<*mut Self::Item> {
     type Item;
 
-    fn update(&mut self, new_list_addr: *mut Self::Item);
+    fn update_with<F>(&mut self, f: F)
+    where
+        F: FnOnce() -> *mut Self::Item;
     fn get(&self) -> *mut Self::Item;
 }
 
 impl<T> Provider for LocalProvider<T> {
     type Item = T;
 
-    fn update(&mut self, new_list_addr: *mut Self::Item) {
+    fn update_with<F>(&mut self, f: F)
+    where
+        F: FnOnce() -> *mut Self::Item,
+    {
+        let new_list_addr = f();
         self.0.set(new_list_addr);
     }
 
@@ -33,33 +35,25 @@ impl<T> Provider for LocalProvider<T> {
     }
 }
 
-impl<T> Provider for SendProvider<T> {
-    type Item = T;
+// impl<T> Provider for SendProvider<T> {
+//     type Item = T;
 
-    fn update(&mut self, new_list_addr: *mut Self::Item) {
-        self.0.store(new_list_addr, Ordering::SeqCst);
-    }
+//     fn update_with<F>(&mut self, f: F)
+//     where
+//         F: FnOnce() -> *mut Self::Item,
+//     {
+//         self.0.fetch_update(set_order, fetch_order, f)
+//         self.0.store(new_list_addr, Ordering::SeqCst);
+//     }
 
-    fn get(&self) -> *mut Self::Item {
-        self.0.load(Ordering::Relaxed)
-    }
-}
+//     fn get(&self) -> *mut Self::Item {
+//         self.0.load(Ordering::Relaxed)
+//     }
+// }
 
 impl<T> Clone for LocalProvider<T> {
     fn clone(&self) -> Self {
         Self(Rc::clone(&self.0))
-    }
-}
-
-impl<T> Clone for SendProvider<T> {
-    fn clone(&self) -> Self {
-        Self(Arc::clone(&self.0))
-    }
-}
-
-impl<T> From<*mut T> for NoProvider<T> {
-    fn from(_value: *mut T) -> Self {
-        NoProvider(PhantomData)
     }
 }
 
@@ -69,8 +63,14 @@ impl<T> From<*mut T> for LocalProvider<T> {
     }
 }
 
-impl<T> From<*mut T> for SendProvider<T> {
-    fn from(value: *mut T) -> Self {
-        SendProvider(Arc::new(AtomicPtr::new(value)))
-    }
-}
+// impl<T> Clone for SendProvider<T> {
+//     fn clone(&self) -> Self {
+//         Self(Arc::clone(&self.0))
+//     }
+// }
+
+// impl<T> From<*mut T> for SendProvider<T> {
+//     fn from(value: *mut T) -> Self {
+//         SendProvider(Arc::new(AtomicPtr::new(value)))
+//     }
+// }

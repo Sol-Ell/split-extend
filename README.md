@@ -30,7 +30,7 @@ fn main() {
 
     let (left, mut right) = vec.split_extend(2);
 
-    left[0] = 10; // Modify left side
+    left.edit(|slice| slice[0] = 10) // Modify left side
 
     right.push(6); // Extend right side
 

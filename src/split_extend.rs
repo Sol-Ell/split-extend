@@ -6,11 +6,14 @@ use alloc::{
 use crate::{index_out_of_range, Head, Provider, Tail};
 
 /// Extension trait to create new [`Tail`] from mutable reference to [`Vec`].
-pub trait SplitExtend<P: Provider<Item = Self::Item>, A: Allocator = Global> {
+pub trait SplitExtend<'a, P: Provider<Item = Self::Item>, A: Allocator = Global> {
     type Item;
 
     #[allow(clippy::type_complexity)]
-    fn split_extend(&mut self, at: usize) -> (Head<'_, Self::Item, P>, Tail<'_, Self::Item, P, A>);
+    fn split_extend(
+        &'a mut self,
+        at: usize,
+    ) -> (Head<'a, Self::Item, P>, Tail<'a, Self::Item, P, A>);
 }
 
 // /// Special case of [`SplitExtend::split_extend`], without [`Head`](crate::Head) part.
@@ -19,10 +22,13 @@ pub trait SplitExtend<P: Provider<Item = Self::Item>, A: Allocator = Global> {
 //     fn tail(&'a mut self, offset: usize) -> Tail<'a, Self::Item, NoProvider<Self::Item>, A>;
 // }
 
-impl<T, P: Provider<Item = T>, A: Allocator> SplitExtend<P, A> for Vec<T, A> {
+impl<'a, T, P: Provider<Item = T>, A: Allocator> SplitExtend<'a, P, A> for Vec<T, A> {
     type Item = T;
 
-    fn split_extend(&mut self, at: usize) -> (Head<'_, Self::Item, P>, Tail<'_, Self::Item, P, A>) {
+    fn split_extend(
+        &'a mut self,
+        at: usize,
+    ) -> (Head<'a, Self::Item, P>, Tail<'a, Self::Item, P, A>) {
         if at > self.len() {
             index_out_of_range();
         }

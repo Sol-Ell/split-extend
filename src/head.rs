@@ -19,7 +19,7 @@ impl<T, P: Provider> Head<'_, T, P> {
         }
     }
 
-    pub fn map<U, F>(&mut self, f: F) -> U
+    pub fn edit<U, F>(&mut self, f: F) -> U
     where
         F: FnOnce(&mut [T]) -> U,
     {

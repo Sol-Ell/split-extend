@@ -27,7 +27,7 @@ mod test {
 
     #[test]
     fn basic() {
-        let mut list = vec![-159, 1, 2, 3];
+        let mut list = vec![3, 1, 2, 0];
 
         println!("List: {:?}", list);
 
@@ -36,22 +36,28 @@ mod test {
         println!("First head: {:?}", head);
         println!("First tail: {:?}", tail);
 
-        let (head_2, mut tail_2): (crate::Head<'_, i32, _>, crate::Tail<'_, i32, _>) =
+        let (mut head_2, mut tail_2): (crate::Head<'_, i32, _>, crate::Tail<'_, i32, _>) =
             tail.split_extend(3);
 
         println!("Extending list..");
         tail_2.extend(4..32);
 
+        println!("Modifying..");
+
+        head.edit(|slice| slice[0] = 0);
+        head_2.edit(|slice| slice[2] = 3);
+
+        // error[E0499]: cannot borrow `tail` as mutable more than once at a time
+        // tail.push(1);
+
         println!("Second head: {:?}", head_2);
         println!("Second tail: {:?}", tail_2);
 
-        head.map(|slice| slice[0] = 0);
-
         println!("First head after modification: {:?}", head);
+        println!("Second head after modification: {:?}", head_2);
 
         println!("List: {:?}", list);
 
-        // Uncomment to get:
         // error[E0502]: cannot borrow `list` as immutable because it is also borrowed as mutable
         // println!("Second head: {:?}", head_2);
     }
